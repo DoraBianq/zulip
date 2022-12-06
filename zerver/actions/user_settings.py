@@ -380,14 +380,24 @@ def do_change_user_setting(
     if user_profile != acting_user:
         sender = get_system_bot(settings.NOTIFICATION_BOT, user_profile.realm_id)
         acting_user= silent_mention_syntax_for_user(acting_user)
-        with override_language(user_profile.realm.default_language):
-            notification_string = ("{admin_user} has modified your profile")
-            # message sent by the notification bot
+        #with override_language(user_profile.realm.default_language):
+        notification_string =("{admin_user} has modified your profile")
+        # message sent by the notification bot
+        internal_send_private_message(
+            sender,
+            user_profile,
+            notification_string.format(
+                admin_user=acting_user,
+            ),
+        )
+        #Mettre une condition if user_profile != acting_user
+
+        with override_language(user_profile.referred_by.default_language):
             internal_send_private_message(
-                sender,
-                user_profile,
-                notification_string.format(
-                    admin_user=acting_user,
+                get_system_bot(settings.NOTIFICATION_BOT, user_profile.referred_by.realm_id),
+                user_profile.referred_by,
+                _("{user} ahas modified your profile").format(
+                    user=f"{acting_user.full_name} <`{acting_user.email}`>"
                 ),
             )
 
