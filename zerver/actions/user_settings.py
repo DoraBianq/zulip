@@ -374,7 +374,7 @@ def do_change_user_setting(
         user_mention = silent_mention_syntax_for_user(user_profile)
         with override_language(user_profile.realm.default_language):
             notification_string = _("{acting_user} has modified your profile")
-
+            #message sent by the notification bot
             internal_send_private_message(
                 sender,
                 user_profile,
