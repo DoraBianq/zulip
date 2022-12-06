@@ -6,16 +6,20 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import F
 from django.utils.timezone import now as timezone_now
+from django.utils.translation import override as override_language
 
 from confirmation.models import Confirmation, create_confirmation_link
 from zerver.actions.presence import do_update_user_presence
+from zerver.actions.message_send import internal_send_private_message
 from zerver.lib.avatar import avatar_url
 from zerver.lib.cache import (
     cache_delete,
     delete_user_profile_caches,
     user_profile_by_api_key_cache_key,
 )
+
 from zerver.lib.i18n import get_language_name
+from zerver.lib.mention import silent_mention_syntax_for_user
 from zerver.lib.queue import queue_json_publish
 from zerver.lib.send_email import FromAddress, clear_scheduled_emails, send_email
 from zerver.lib.timezone import canonicalize_timezone
@@ -34,6 +38,7 @@ from zerver.models import (
     bot_owner_user_ids,
     get_client,
     get_user_profile_by_id,
+    get_system_bot,
 )
 from zerver.tornado.django_api import send_event
 
@@ -362,6 +367,22 @@ def do_change_user_setting(
 
     # TODO: Move these database actions into a transaction.atomic block.
     user_profile.save(update_fields=[setting_name])
+
+    # Send a notification via the notification bot if the modification was done by an administrator
+    if user_profile != acting_user:
+        sender = get_system_bot(settings.NOTIFICATION_BOT, user_profile.realm_id)
+        user_mention = silent_mention_syntax_for_user(user_profile)
+        with override_language(user_profile.realm.default_language):
+            notification_string = _("{acting_user} has modified your profile")
+
+            internal_send_private_message(
+                sender,
+                user_profile,
+                notification_string.format(
+                    acting_user=acting_user,
+                ),
+            )
+
 
     if setting_name in UserProfile.notification_setting_types:
         # Prior to all personal settings being managed by property_types,
