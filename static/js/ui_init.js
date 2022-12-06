@@ -59,6 +59,7 @@ import * as overlays from "./overlays";
 import {page_params} from "./page_params";
 import * as people from "./people";
 import * as pm_conversations from "./pm_conversations";
+import * as pm_list from "./pm_list";
 import * as popover_menus from "./popover_menus";
 import * as presence from "./presence";
 import * as realm_logo from "./realm_logo";
@@ -297,10 +298,6 @@ export function initialize_kitchen_sink_stuff() {
 
     if (page_params.is_spectator) {
         $("body").addClass("spectator-view");
-    }
-
-    if (!user_settings.left_side_userlist) {
-        $("#navbar-buttons").addClass("right-userlist");
     }
 
     if (user_settings.high_contrast_mode) {
@@ -557,6 +554,8 @@ export function initialize_everything() {
 
     const user_groups_params = pop_fields("realm_user_groups");
 
+    const unread_params = pop_fields("unread_msgs");
+
     const user_status_params = pop_fields("user_status");
     const i18n_params = pop_fields("language_list");
     const user_settings_params = pop_fields("user_settings");
@@ -610,8 +609,8 @@ export function initialize_everything() {
     settings.initialize();
     initialize_navbar();
     initialize_message_feed_errors();
-    realm_logo.render();
 
+    realm_logo.initialize();
     message_lists.initialize();
     alert_words.initialize(alert_words_params);
     emojisets.initialize();
@@ -647,7 +646,7 @@ export function initialize_everything() {
     search_pill_widget.initialize();
     reload.initialize();
     user_groups.initialize(user_groups_params);
-    unread.initialize();
+    unread.initialize(unread_params);
     bot_data.initialize(bot_params); // Must happen after people.initialize()
     message_fetch.initialize(server_events.home_view_loaded);
     message_scroll.initialize();
@@ -672,11 +671,11 @@ export function initialize_everything() {
 
     // All overlays must be initialized before hashchange.js
     hashchange.initialize();
-    resize.initialize();
 
     unread_ui.initialize();
     activity.initialize();
     emoji_picker.initialize();
+    pm_list.initialize();
     topic_list.initialize();
     topic_zoom.initialize();
     drafts.initialize();

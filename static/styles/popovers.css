@@ -302,6 +302,7 @@ ul {
     }
 }
 
+.user_profile_presence,
 .popover_user_presence {
     width: 8px;
     height: 8px;
@@ -348,6 +349,11 @@ ul {
 
     .modal__header {
         justify-content: center;
+    }
+
+    .user_profile_presence {
+        margin: 5px;
+        vertical-align: middle;
     }
 
     .modal__close {
@@ -416,11 +422,6 @@ ul {
         .default-field {
             margin-bottom: 10px;
         }
-    }
-
-    #user-status {
-        text-align: center;
-        margin: 0 0 10px;
     }
 
     hr {
@@ -792,7 +793,8 @@ ul {
     }
 
     .dropdown-list-widget,
-    .stream_header_colorblock {
+    .stream_header_colorblock,
+    .inline_topic_edit {
         margin-bottom: 10px;
     }
 

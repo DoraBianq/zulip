@@ -1,8 +1,10 @@
+import ClipboardJS from "clipboard";
 import $ from "jquery";
 
 import render_settings_deactivation_stream_modal from "../templates/confirm_dialog/confirm_deactivate_stream.hbs";
 import render_stream_privacy from "../templates/stream_privacy.hbs";
 import render_change_stream_info_modal from "../templates/stream_settings/change_stream_info_modal.hbs";
+import render_copy_email_address_modal from "../templates/stream_settings/copy_email_address_modal.hbs";
 import render_stream_description from "../templates/stream_settings/stream_description.hbs";
 import render_stream_settings from "../templates/stream_settings/stream_settings.hbs";
 import render_stream_types from "../templates/stream_settings/stream_types.hbs";
@@ -15,6 +17,7 @@ import * as confirm_dialog from "./confirm_dialog";
 import * as dialog_widget from "./dialog_widget";
 import * as hash_util from "./hash_util";
 import {$t, $t_html} from "./i18n";
+import * as keydown_util from "./keydown_util";
 import * as narrow_state from "./narrow_state";
 import {page_params} from "./page_params";
 import * as settings_config from "./settings_config";
@@ -94,7 +97,7 @@ export function get_display_text_for_realm_message_retention_setting() {
 }
 
 function change_stream_message_retention_days_block_display_property(value) {
-    if (value === "retain_for_period") {
+    if (value === "custom_period") {
         $("#stream_privacy_modal .stream-message-retention-days-input").show();
     } else {
         $("#stream_privacy_modal .stream-message-retention-days-input").hide();
@@ -102,7 +105,7 @@ function change_stream_message_retention_days_block_display_property(value) {
 }
 
 function set_stream_message_retention_setting_dropdown(stream) {
-    let value = "retain_for_period";
+    let value = "custom_period";
     if (stream.message_retention_days === null) {
         value = "realm_default";
     } else if (stream.message_retention_days === settings_config.retain_message_forever) {
@@ -431,7 +434,7 @@ function change_stream_privacy(e) {
     let message_retention_days = $(
         "#stream_privacy_modal select[name=stream_message_retention_setting]",
     ).val();
-    if (message_retention_days === "retain_for_period") {
+    if (message_retention_days === "custom_period") {
         message_retention_days = Number.parseInt(
             $("#stream_privacy_modal input[name=stream-message-retention-days]").val(),
             10,
@@ -461,6 +464,18 @@ export function archive_stream(stream_id, $alert_element, $stream_row) {
             $stream_row.remove();
         },
     });
+}
+
+export function get_stream_email_address(flags, address) {
+    const clean_address = address
+        .replace(".show-sender", "")
+        .replace(".include-footer", "")
+        .replace(".include-quotes", "")
+        .replace(".prefer-html", "");
+
+    const flag_string = flags.map((flag) => "." + flag).join("");
+
+    return clean_address.replace("@", flag_string + "@");
 }
 
 export function initialize() {
@@ -498,8 +513,6 @@ export function initialize() {
             is_business_type_org:
                 page_params.realm_org_type === settings_config.all_org_type_values.business.code,
             is_stream_edit: true,
-            max_stream_name_length: page_params.max_stream_name_length,
-            max_stream_description_length: page_params.max_stream_description_length,
         };
         const change_privacy_modal = render_stream_types(template_data);
 
@@ -512,7 +525,7 @@ export function initialize() {
             close_on_submit: true,
             id: "stream_privacy_modal",
             on_click: change_stream_privacy,
-            post_render: () => {
+            post_render() {
                 $("#stream_privacy_modal .dialog_submit_button").attr("data-stream-id", stream_id);
                 set_stream_message_retention_setting_dropdown(stream);
 
@@ -521,7 +534,7 @@ export function initialize() {
                     change_stream_message_retention_days_block_display_property(dropdown_value);
                 });
             },
-            on_show: () => {
+            on_show() {
                 stream_settings_ui.hide_or_disable_stream_privacy_options_if_required(
                     $("#stream_privacy_modal"),
                 );
@@ -539,6 +552,8 @@ export function initialize() {
         const template_data = {
             stream_name: stream.name,
             stream_description: stream.description,
+            max_stream_name_length: page_params.max_stream_name_length,
+            max_stream_description_length: page_params.max_stream_description_length,
         };
         const change_stream_info_modal = render_change_stream_info_modal(template_data);
         dialog_widget.launch({
@@ -549,7 +564,7 @@ export function initialize() {
             html_body: change_stream_info_modal,
             id: "change_stream_info_modal",
             on_click: save_stream_info,
-            post_render: () => {
+            post_render() {
                 $("#change_stream_info_modal .dialog_submit_button")
                     .addClass("save-button")
                     .attr("data-stream-id", stream_id);
@@ -560,7 +575,7 @@ export function initialize() {
     $("#manage_streams_container").on("keypress", "#change_stream_description", (e) => {
         // Stream descriptions can not be multiline, so disable enter key
         // to prevent new line
-        if (e.key === "Enter") {
+        if (keydown_util.is_enter_event(e)) {
             return false;
         }
         return true;
@@ -591,15 +606,71 @@ export function initialize() {
         settings_ui.do_settings_change(channel.patch, url, data, $status_element);
     }
 
-    $("#manage_streams_container").on(
-        "click",
-        ".close-modal-btn, .close-change-stream-info-modal",
-        (e) => {
-            // This fixes a weird bug in which, subscription_settings hides
-            // unexpectedly by clicking the cancel button in a modal on top of it.
-            e.stopPropagation();
-        },
-    );
+    $("#manage_streams_container").on("click", ".copy_email_button", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const stream_id = get_stream_id(e.target);
+        const stream = sub_store.get(stream_id);
+        let address = stream.email_address;
+
+        const copy_email_address = render_copy_email_address_modal({
+            email_address: address,
+            tags: [
+                {
+                    name: "show-sender",
+                    description: $t({
+                        defaultMessage: "The sender's email address",
+                    }),
+                },
+                {
+                    name: "include-footer",
+                    description: $t({defaultMessage: "Email footers (e.g., signature)"}),
+                },
+                {
+                    name: "include-quotes",
+                    description: $t({defaultMessage: "Quoted original email (in replies)"}),
+                },
+                {
+                    name: "prefer-html",
+                    description: $t({
+                        defaultMessage: "Use html encoding (not recommended)",
+                    }),
+                },
+            ],
+        });
+
+        dialog_widget.launch({
+            html_heading: $t_html({defaultMessage: "Generate stream email address"}),
+            html_body: copy_email_address,
+            id: "copy_email_address_modal",
+            html_submit_button: $t_html({defaultMessage: "Copy address"}),
+            help_link: "/help/message-a-stream-by-email#configuration-options",
+            on_click() {},
+            close_on_submit: true,
+        });
+        $("#show-sender").prop("checked", true);
+
+        new ClipboardJS("#copy_email_address_modal .dialog_submit_button", {
+            text() {
+                return address;
+            },
+        });
+
+        $("#copy_email_address_modal .tag-checkbox").on("change", () => {
+            const $checked_checkboxes = $(".copy-email-modal").find("input:checked");
+
+            const flags = [];
+
+            $($checked_checkboxes).each(function () {
+                flags.push($(this).attr("id"));
+            });
+
+            address = get_stream_email_address(flags, address);
+
+            $(".email-address").text(address);
+        });
+    });
 
     $("#manage_streams_container").on(
         "change",

@@ -16,6 +16,7 @@ import * as compose_state from "./compose_state";
 import * as confirm_dialog from "./confirm_dialog";
 import * as hash_util from "./hash_util";
 import {$t, $t_html} from "./i18n";
+import * as keydown_util from "./keydown_util";
 import * as loading from "./loading";
 import * as message_live_update from "./message_live_update";
 import * as message_view_header from "./message_view_header";
@@ -663,7 +664,7 @@ export function setup_page(callback) {
         // streams, either explicitly via user_can_create_streams, or
         // implicitly because page_params.realm_is_zephyr_mirror_realm.
         $("#stream_filter input[type='text']").on("keypress", (e) => {
-            if (e.key !== "Enter") {
+            if (!keydown_util.is_enter_event(e)) {
                 return;
             }
 
@@ -1025,18 +1026,18 @@ export function update_web_public_stream_privacy_option_state($container) {
             $web_public_stream_elem.prop("disabled", true);
             return;
         }
-        $web_public_stream_elem.closest(".radio-input-parent").hide();
+        $web_public_stream_elem.closest(".settings-radio-input-parent").hide();
         $container
-            .find(".stream-privacy-values .radio-input-parent:visible")
+            .find(".stream-privacy-values .settings-radio-input-parent:visible")
             .last()
             .css("border-bottom", "none");
     } else {
         if (!$web_public_stream_elem.is(":visible")) {
             $container
-                .find(".stream-privacy-values .radio-input-parent:visible")
+                .find(".stream-privacy-values .settings-radio-input-parent:visible")
                 .last()
                 .css("border-bottom", "");
-            $web_public_stream_elem.closest(".radio-input-parent").show();
+            $web_public_stream_elem.closest(".settings-radio-input-parent").show();
         }
         $web_public_stream_elem.prop(
             "disabled",

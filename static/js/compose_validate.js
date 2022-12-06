@@ -305,7 +305,6 @@ export function wildcard_mention_allowed() {
         page_params.realm_wildcard_mention_policy ===
         settings_config.wildcard_mention_policy_values.by_admins_only.code
     ) {
-        // TODO: Check the user's stream-level role once stream-level admins exist.
         return page_params.is_admin;
     }
 
@@ -315,13 +314,7 @@ export function wildcard_mention_allowed() {
     ) {
         return page_params.is_admin || page_params.is_moderator;
     }
-    // TODO: Uncomment when we add support for stream-level administrators.
-    // if (
-    //     page_params.realm_wildcard_mention_policy ===
-    //     settings_config.wildcard_mention_policy_values.by_admins_only.code
-    // ) {
-    //     return page_params.is_admin;
-    // }
+
     if (
         page_params.realm_wildcard_mention_policy ===
         settings_config.wildcard_mention_policy_values.by_full_members.code
@@ -392,7 +385,8 @@ export function validation_error(error_type, stream_name) {
                 },
                 {
                     stream_name,
-                    "z-link": (content_html) => `<a href='#streams/all'>${content_html}</a>`,
+                    "z-link": (content_html) =>
+                        `<a href='#streams/all'>${content_html.join("")}</a>`,
                 },
             );
             compose_error.show(response, $("#stream_message_recipient_stream"));
@@ -482,7 +476,8 @@ function validate_private_message() {
     const user_ids = compose_pm_pill.get_user_ids();
 
     if (
-        page_params.realm_private_message_policy === 2 && // Frontend check for for PRIVATE_MESSAGE_POLICY_DISABLED
+        page_params.realm_private_message_policy ===
+            settings_config.private_message_policy_values.disabled.code &&
         (user_ids.length !== 1 || !people.get_by_user_id(user_ids[0]).is_bot)
     ) {
         // Unless we're composing to a bot

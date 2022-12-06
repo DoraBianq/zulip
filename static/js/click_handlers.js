@@ -32,6 +32,7 @@ import * as notifications from "./notifications";
 import * as overlays from "./overlays";
 import {page_params} from "./page_params";
 import * as people from "./people";
+import * as pm_list from "./pm_list";
 import * as popovers from "./popovers";
 import * as reactions from "./reactions";
 import * as recent_topics_ui from "./recent_topics_ui";
@@ -591,7 +592,12 @@ export function initialize() {
             $(".tooltip").remove();
         });
 
-    function do_render_buddy_list_tooltip($elem, title_data) {
+    function do_render_buddy_list_tooltip(
+        $elem,
+        title_data,
+        parent_element_to_append = null,
+        is_custom_observer_needed = true,
+    ) {
         let placement = "left";
         let observer;
         if (window.innerWidth < media_breakpoints_num.md) {
@@ -608,11 +614,16 @@ export function initialize() {
             arrow: true,
             placement,
             showOnCreate: true,
-            onHidden: (instance) => {
+            onHidden(instance) {
                 instance.destroy();
-                observer.disconnect();
+                if (is_custom_observer_needed) {
+                    observer.disconnect();
+                }
             },
-            onShow: (instance) => {
+            onShow(instance) {
+                if (!is_custom_observer_needed) {
+                    return;
+                }
                 // For both buddy list and top left corner pm list, `target_node`
                 // is their parent `ul` element. We cannot use MutationObserver
                 // directly on the reference element because it will be removed
@@ -637,7 +648,7 @@ export function initialize() {
                 observer = new MutationObserver(callback);
                 observer.observe(target_node, config);
             },
-            appendTo: () => document.body,
+            appendTo: () => parent_element_to_append || document.body,
         });
     }
 
@@ -660,6 +671,19 @@ export function initialize() {
 
         const title_data = buddy_data.get_title_data(user_ids_string, is_group);
         do_render_buddy_list_tooltip($elem, title_data);
+    });
+
+    // Recent conversations PMs
+    $("body").on("mouseenter", ".recent_topic_stream .pm_status_icon", (e) => {
+        e.stopPropagation();
+        const $elem = $(e.currentTarget);
+        const user_ids_string = $elem.attr("data-user-ids-string");
+        // Don't show tooltip for group PMs.
+        if (!user_ids_string || user_ids_string.split(",").length !== 1) {
+            return;
+        }
+        const title_data = recent_topics_ui.get_pm_tooltip_data(user_ids_string);
+        do_render_buddy_list_tooltip($elem, title_data, undefined, false);
     });
 
     // MISC
@@ -758,6 +782,47 @@ export function initialize() {
         e.stopPropagation();
         stream_list.toggle_filter_displayed(e);
     });
+
+    $("body").on(
+        "click",
+        ".private_messages_container.zoom-out #private_messages_section_header",
+        (e) => {
+            if (e.target.classList.value === "fa fa-align-right") {
+                // Let the browser handle the "all private messages" widget.
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+            const $left_sidebar_scrollbar = $(
+                "#left_sidebar_scroll_container .simplebar-content-wrapper",
+            );
+            const scroll_position = $left_sidebar_scrollbar.scrollTop();
+
+            // This next bit of logic is a bit subtle; this header
+            // button scrolls to the top of the private messages
+            // section is uncollapsed but out of view; otherwise, we
+            // toggle its collapsed state.
+            if (scroll_position === 0 || pm_list.is_private_messages_collapsed()) {
+                pm_list.toggle_private_messages_section();
+            }
+            $left_sidebar_scrollbar.scrollTop(0);
+        },
+    );
+
+    /* The PRIVATE MESSAGES label's click behavior is complicated;
+     * only when zoomed in does it have a navigation effect, so we need
+     * this click handler rather than just a link. */
+    $("body").on(
+        "click",
+        ".private_messages_container.zoom-in #private_messages_section_header",
+        (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            window.location.hash = "narrow/is/private";
+        },
+    );
 
     // WEBATHENA
 
