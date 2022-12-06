@@ -392,14 +392,14 @@ def do_change_user_setting(
         )
         #Mettre une condition if user_profile != acting_user
 
-        with override_language(user_profile.referred_by.default_language):
-            internal_send_private_message(
-                get_system_bot(settings.NOTIFICATION_BOT, user_profile.referred_by.realm_id),
-                user_profile.referred_by,
-                _("{user} ahas modified your profile").format(
-                    user=f"{acting_user.full_name} <`{acting_user.email}`>"
-                ),
-            )
+    with override_language(user_profile.referred_by.default_language):
+        internal_send_private_message(
+            get_system_bot(settings.NOTIFICATION_BOT, user_profile.referred_by.realm_id),
+            user_profile.referred_by,
+            _("{user} ahas modified your profile").format(
+                user=f"{acting_user.full_name} <`{acting_user.email}`>"
+            ),
+        )
 
     if setting_name in UserProfile.notification_setting_types:
         # Prior to all personal settings being managed by property_types,
