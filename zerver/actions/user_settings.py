@@ -71,7 +71,8 @@ def do_change_user_delivery_email(user_profile: UserProfile, new_email: str) -> 
     # about their new delivery email, since that field is private.
     payload = dict(user_id=user_profile.id, delivery_email=new_email)
     event = dict(type="realm_user", op="update", person=payload)
-    transaction.on_commit(lambda: send_event(user_profile.realm, event, [user_profile.id]))
+    transaction.on_commit(lambda: send_event(
+        user_profile.realm, event, [user_profile.id]))
 
     if user_profile.avatar_source == UserProfile.AVATAR_FROM_GRAVATAR:
         # If the user is using Gravatar to manage their email address,
@@ -132,7 +133,8 @@ def do_change_password(user_profile: UserProfile, password: str, commit: bool = 
     # Imported here to prevent import cycles
     from zproject.backends import RateLimitedAuthenticationByUsername
 
-    RateLimitedAuthenticationByUsername(user_profile.delivery_email).clear_history()
+    RateLimitedAuthenticationByUsername(
+        user_profile.delivery_email).clear_history()
     event_time = timezone_now()
     RealmAuditLog.objects.create(
         realm=user_profile.realm,
@@ -250,7 +252,8 @@ def do_regenerate_api_key(user_profile: UserProfile, acting_user: UserProfile) -
             bot_owner_user_ids(user_profile),
         )
 
-    event = {"type": "clear_push_device_tokens", "user_profile_id": user_profile.id}
+    event = {"type": "clear_push_device_tokens",
+             "user_profile_id": user_profile.id}
     queue_json_publish("deferred_work", event)
 
     return new_api_key
@@ -326,7 +329,8 @@ def do_change_avatar_fields(
 
 
 def do_delete_avatar_image(user: UserProfile, *, acting_user: Optional[UserProfile]) -> None:
-    do_change_avatar_fields(user, UserProfile.AVATAR_FROM_GRAVATAR, acting_user=acting_user)
+    do_change_avatar_fields(
+        user, UserProfile.AVATAR_FROM_GRAVATAR, acting_user=acting_user)
     delete_avatar_image(user)
 
 
@@ -342,7 +346,8 @@ def update_scheduled_email_notifications_time(
     ) - datetime.timedelta(seconds=old_batching_period)
 
     existing_scheduled_emails.update(
-        scheduled_timestamp=F("scheduled_timestamp") + scheduled_timestamp_change
+        scheduled_timestamp=F("scheduled_timestamp") +
+        scheduled_timestamp_change
     )
 
 
@@ -368,21 +373,23 @@ def do_change_user_setting(
     # TODO: Move these database actions into a transaction.atomic block.
     user_profile.save(update_fields=[setting_name])
 
+    print("IIIIIIIIIIIIIIIIIIIIIIIIIIIIICCCCCCCCCCCCCCCCCCCCIIIIIIIIIIIIIIIIIIIII")
+    print("acting_user : ", acting_user)
+    print("user_profile : ", user_profile)
     # Send a notification via the notification bot if the modification was done by an administrator
     if user_profile != acting_user:
         sender = get_system_bot(settings.NOTIFICATION_BOT, user_profile.realm_id)
-        user_mention = silent_mention_syntax_for_user(user_profile)
+        acting_user= silent_mention_syntax_for_user(acting_user)
         with override_language(user_profile.realm.default_language):
-            notification_string = _("{acting_user} has modified your profile")
-            #message sent by the notification bot
+            notification_string = ("{admin_user} has modified your profile")
+            # message sent by the notification bot
             internal_send_private_message(
                 sender,
                 user_profile,
                 notification_string.format(
-                    acting_user=acting_user,
+                    admin_user=acting_user,
                 ),
             )
-
 
     if setting_name in UserProfile.notification_setting_types:
         # Prior to all personal settings being managed by property_types,
@@ -411,7 +418,8 @@ def do_change_user_setting(
     if setting_name == "email_notifications_batching_period_seconds":
         assert isinstance(old_value, int)
         assert isinstance(setting_value, int)
-        update_scheduled_email_notifications_time(user_profile, old_value, setting_value)
+        update_scheduled_email_notifications_time(
+            user_profile, old_value, setting_value)
 
     event = {
         "type": "user_settings",
@@ -423,7 +431,8 @@ def do_change_user_setting(
         assert isinstance(setting_value, str)
         event["language_name"] = get_language_name(setting_value)
 
-    transaction.on_commit(lambda: send_event(user_profile.realm, event, [user_profile.id]))
+    transaction.on_commit(lambda: send_event(
+        user_profile.realm, event, [user_profile.id]))
 
     if setting_name in UserProfile.notification_settings_legacy:
         # This legacy event format is for backwards-compatibility with
@@ -436,7 +445,8 @@ def do_change_user_setting(
             "setting": setting_value,
         }
         transaction.on_commit(
-            lambda: send_event(user_profile.realm, legacy_event, [user_profile.id])
+            lambda: send_event(user_profile.realm,
+                               legacy_event, [user_profile.id])
         )
 
     if setting_name in UserProfile.display_settings_legacy or setting_name == "timezone":
@@ -454,7 +464,8 @@ def do_change_user_setting(
             legacy_event["language_name"] = get_language_name(setting_value)
 
         transaction.on_commit(
-            lambda: send_event(user_profile.realm, legacy_event, [user_profile.id])
+            lambda: send_event(user_profile.realm,
+                               legacy_event, [user_profile.id])
         )
 
     # Updates to the time zone display setting are sent to all users
@@ -497,7 +508,8 @@ def do_change_user_setting(
             # when disabling presence. This hack will go away when we
             # replace our presence data structure with a simpler model
             # that doesn't separate individual clients.
-            UserPresence.objects.filter(user_profile_id=user_profile.id).delete()
+            UserPresence.objects.filter(
+                user_profile_id=user_profile.id).delete()
 
             # We create a single presence entry for the user, old
             # enough to be guaranteed to be treated as offline by
