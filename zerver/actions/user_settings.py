@@ -167,14 +167,13 @@ def do_change_full_name(
         active_user_ids(user_profile.realm_id),
     )
     #Mettre une condition if user_profile != acting_user
-    with override_language(user_profile.referred_by.default_language):
-        internal_send_private_message(
-            get_system_bot(settings.NOTIFICATION_BOT, user_profile.referred_by.realm_id),
-            user_profile.referred_by,
-            ("{user} has modified your profile").format(
-                user=f"{acting_user.full_name} <`{acting_user.email}`>"
-            ),
-        )
+    internal_send_private_message(
+        get_system_bot(settings.NOTIFICATION_BOT, user_profile.referred_by.realm_id),
+        user_profile.referred_by,
+        ("{user} has modified your profile").format(
+            user=f"{acting_user.full_name} <`{acting_user.email}`>"
+        ),
+    )
     if user_profile.is_bot:
         send_event(
             user_profile.realm,
